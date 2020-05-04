@@ -19,7 +19,7 @@ pip install -U --user keras_preprocessing --no-deps
 Linux CPU    
 
     |版本|	Python版本|	编译器|	构建工具|
-    |---|----|---|---|---|
+    |---|----|---|---|
     |tensorflow-2.1.0|	2.7、3.5-3.7|	GCC 7.3.1|	Bazel 0.27.1
     |tensorflow-2.0.0|	2.7、3.3-3.7|	GCC 7.3.1|	Bazel 0.26.1
 
