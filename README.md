@@ -14,33 +14,42 @@ pip install -U --user keras_preprocessing --no-deps
 可以在安装的时候使用清华源：-i https://pypi.tuna.tsinghua.edu.cn/simple
 
 ### 2. 环境准备：
-* a)	准备对应版本的 bazel 和 gcc/g++ (我使用GCC 7.5, 也是没有问题的)
+
+* a) 准备对应版本的 bazel 和 gcc/g++ (我使用GCC 7.5, 也是没有问题的)
 经过测试的构建配置    
 Linux CPU    
 
-    |版本|	Python版本|	编译器|	构建工具|
-    |---|----|---|---|
-    |tensorflow-2.1.0|	2.7、3.5-3.7|	GCC 7.3.1|	Bazel 0.27.1
-    |tensorflow-2.0.0|	2.7、3.3-3.7|	GCC 7.3.1|	Bazel 0.26.1
+    |版本|Python版本|编译器|构建工具|build日期|
+    |---|----|---|---|---|
+    |tensorflow-2.6.0|3.6-3.9|GCC 7.3.1|Bazel 3.7.2|2023/06/29|
+    |tensorflow-2.1.0|2.7、3.5-3.7|GCC 7.3.1|Bazel 0.27.1|-|
+    |tensorflow-2.0.0|2.7、3.3-3.7|GCC 7.3.1|Bazel 0.26.1|-|
 
- 
 * b)	切换apt-get为阿里源:         
-https://www.cnblogs.com/hcl1991/p/7894958.html    
-https://blog.csdn.net/rihongliu/article/details/83657761     
+https://www.cnblogs.com/hcl1991/p/7894958.html
+https://blog.csdn.net/rihongliu/article/details/83657761
 可以把阿里源添加在之前的源的上面，不然可能找不到 gcc-7
 
 * c) 安装git gcc 等必要程序
-```
+
+``` bash
 sudo apt-get install git
 sudo apt-get install gcc-7
-如果安装了多个gcc版本可以使用：
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 50 
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 70 
-进行切换
 ```
 
-* d)	安装bazel
+如果安装了多个gcc版本可以使用：进行切换
+
+```bash
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-5 50 
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 70 
 ```
+
+* d) 安装bazel
+
+- [bazel-3.7.2-installer-linux-x86_64.sh](https://github.com/bazelbuild/bazel/releases/download/3.7.2/bazel-3.7.2-installer-linux-x86_64.sh)
+- [bazel-3.7.2-windows-x86_64.exe](https://github.com/bazelbuild/bazel/releases/download/3.7.2/bazel-3.7.2-windows-x86_64.exe)
+
+```bash
 sudo ./bazel-0.27.1-installer-linux-x86_64.sh
 bazel version
 
@@ -53,8 +62,24 @@ Build timestamp: 1562089775
 Build timestamp as int: 1562089775
 ```
 
-* e)	下载tensorflow git源码，并切换为2.1分支
+如果是windows需要安装
+
+1. msys2 & bazel 配置好环境变量
+
+```powershell
+$Env:BAZEL_VC="C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\"
+$Env:BAZEL_VC_FULL_VERSION="14.29.30133"
 ```
+
+有一些依赖下载需要代理：在powershell设置代理：
+
+```powershell
+$env:all_proxy="socks5://127.0.0.1:10808"
+```
+
+* e) 下载tensorflow git源码，并切换为2.1分支
+
+``` bash
 git clone git@github.com:tensorflow/tensorflow.git
 git 分支查看与切换
 git branch -a
@@ -62,11 +87,13 @@ git checkout -b r2.1 remotes/origin/r2.1
 ```
 
 * f) 编译tensorflow2.1
-```
+
+``` bash
 ./configure  #均使用默认值，一路回车，配置完成后编译，编译命令如下：
 #bazel build -c opt --config=cuda --copt=-march=native tensorflow:libtensorflow_cc.so
 #bazel build --config=opt tensorflow:libtensorflow_cc.so
 bazel build --config=opt //tensorflow:libtensorflow_cc.so
+```
 
 [注意]，编译期间要下载很多相关依赖，建议在国内早上时间相对快速一些。
 
@@ -79,10 +106,24 @@ bazel build -c opt //tensorflow/tools/pip_package:build_pip_package
 C++ compilation of rule ‘//tensorflow/core/kernels:broadcast_to_op’ failed(Exit 4)
 
 后来查询得知是编译过程中swap空间不足引起的，采用以下方法可以正常编译：
-bazel build -c opt //tensorflow/tools/pip_package:build_pip_package --local_resources 2048,.5,1.0
 
-增加 --local_resources 2048,.5,1.0 使得bazel同一时刻产生不超过一个编译器进程。
+```bash
+bazel build -c opt //tensorflow/tools/pip_package:build_pip_package --local_resources 2048,.5,1.0
 ```
+
+增加 `--local_resources 2048,.5,1.0` 使得bazel同一时刻产生不超过一个编译器进程。
+
+> 原因是编译过程中swap空间不足引起的
+
+如果是低版本的编译，可以在编译后面加上 --local_resources 2048,.5,1.0
+> bazel build --config=opt --config=cuda //tensorflow:libtensorflow_cc.so --local_resources 2048,.5,1.0
+
+如果是高版本的编译，可以加上 --local_ram_resources=200 --local_cpu_resources=10
+
+> bazel build --config=opt --config=cuda //tensorflow:libtensorflow_cc.so --local_ram_resources=200 --local_cpu_resources=10
+
+顺便说一句，编译TensorFlow c++还是痛苦的，会有很多坑。我编译了tf2.0和tf2.4都成功了，感受就是，其实报错的很大部分原因就是 要么网速不好，要么内存空间不足，一遍不过，再来一遍就过了。
+
 
 * g) 生成库以后，拷贝到指定目录
 
@@ -105,22 +146,27 @@ sudo cp -rf --parents  tensorflow/core /usr/local/include/tf
 
 ### 3. 编译 sample 中的 label_image 测试程序
 
-编译依赖 abseil-cpp，protocbuf,eigen3 当然这些也可以在编译tensorflow之前安装，不安装也不影响tensorflow编译，它会下载相关依赖
-//参考这篇文章安装，依次安装bazel,protocbuf,eigen3，然后下载tensorflow源码，编译c++ api，将编译结果拷贝到搜索路径
+路径：tensorflow/examples/label_image
+编译依赖 abseil-cpp，protocbuf, eigen3 当然这些也可以在编译 tensorflow 之前安装，不安装也不影响 tensorflow 编译，它会下载相关依赖
+//参考这篇文章安装，依次安装bazel, protocbuf, eigen3，然后下载tensorflow源码，编译c++ api，将编译结果拷贝到搜索路径
 
 * a) abseil-cpp
+
 解决方案：下载源码，然后把该库加到搜索目录里面
-```
+
+``` bash
 git clone https://github.com/abseil/abseil-cpp
 sudo cp -r abseil-cpp /usr/local/include/
 ```
+
 * b) eigen3
-```
+
+``` bash
 sudo apt-get install libeigen3-dev
 ````
 
 * c) protobuf，这里要注意版本匹配
-```
+
 在 tensorflow/workspace.bzl
 中找到版本对应关系
     # 310ba5ee72661c081129eb878c1bbcec936b20f0 is based on 3.8.0 with a fix for protobuf.bzl.
@@ -129,6 +175,7 @@ sudo apt-get install libeigen3-dev
         "https://github.com/protocolbuffers/protobuf/archive/310ba5ee72661c081129eb878c1bbcec936b20f0.tar.gz",
     ]
 
+``` bash
 wget  "https://github.com/protocolbuffers/protobuf/archive/310ba5ee72661c081129eb878c1bbcec936b20f0.tar.gz"
 tar zxvf 310ba5ee72661c081129eb878c1bbcec936b20f0.tar.gz
 cd protobuf-310ba5ee72661c081129eb878c1bbcec936b20f0
@@ -147,7 +194,8 @@ $ sudo ldconfig # refresh shared library cache.
 sudo apt-get install autoconf automake libtool
 ```
 
-* d) 编译 
+* d) 编译
+
 ```
 g++ -std=c++11 -o tfcpp_demo -I /usr/local/include/tf -I /usr/include/eigen3 -I /usr/local/include/abseil-cpp -L /usr/local/lib main.cc `pkg-config --cflags --libs protobuf` -ltensorflow_cc -ltensorflow_framework   
 ```
